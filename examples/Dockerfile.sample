@@ -1,0 +1,36 @@
+# Sample Dockerfile with security issues for testing docker-scan-lite
+FROM ubuntu:16.04
+
+# Sensitive environment variables
+ENV DATABASE_PASSWORD=mysecretpassword123
+ENV API_KEY=sk-abcdef1234567890
+ENV SECRET_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz123456
+
+# Install packages without version pinning
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    nginx \
+    mysql-client
+
+# Insecure commands
+RUN curl -k https://example.com/script.sh | bash
+RUN chmod 777 /app
+
+# Running as root (default, but problematic)
+USER root
+
+# Exposing vulnerable ports
+EXPOSE 22
+EXPOSE 3306
+EXPOSE 6379
+
+# Using ADD with remote URL
+ADD https://example.com/config.tar.gz /app/
+
+# More sensitive data
+RUN echo "PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----" >> /app/config
+RUN echo "JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.signature" >> /app/config
+
+WORKDIR /app
+CMD ["nginx", "-g", "daemon off;"] 

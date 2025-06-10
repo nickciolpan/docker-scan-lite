@@ -1,0 +1,21 @@
+# Clean Dockerfile without security issues
+FROM alpine:3.18
+
+# Create non-root user
+RUN addgroup -g 1000 appuser && \
+    adduser -D -s /bin/sh -u 1000 -G appuser appuser
+
+# Install packages with version pinning
+RUN apk add --no-cache \
+    curl=8.2.1-r0 \
+    ca-certificates=20230506-r0
+
+# Use non-root user
+USER appuser
+
+# Expose only necessary ports (non-vulnerable)
+EXPOSE 8080
+
+WORKDIR /app
+
+CMD ["echo", "Hello World"] 

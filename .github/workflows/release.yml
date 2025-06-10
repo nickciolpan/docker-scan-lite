@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: linux
+            arch: amd64
+            suffix: linux-amd64
+          - os: linux
+            arch: arm64
+            suffix: linux-arm64
+          - os: darwin
+            arch: amd64
+            suffix: darwin-amd64
+          - os: darwin
+            arch: arm64
+            suffix: darwin-arm64
+          - os: windows
+            arch: amd64
+            suffix: windows-amd64.exe
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Get version
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.os }}
+        GOARCH: ${{ matrix.arch }}
+        VERSION: ${{ steps.version.outputs.VERSION }}
+      run: |
+        if [ "${{ matrix.os }}" = "windows" ]; then
+          go build -ldflags="-s -w -X main.version=${VERSION#v}" -o docker-scan-lite-${{ matrix.suffix }}
+        else
+          go build -ldflags="-s -w -X main.version=${VERSION#v}" -o docker-scan-lite-${{ matrix.suffix }}
+        fi
+
+    - name: Create tarball (non-Windows)
+      if: matrix.os != 'windows'
+      run: |
+        tar -czf docker-scan-lite-${{ matrix.suffix }}.tar.gz docker-scan-lite-${{ matrix.suffix }} README.md
+
+    - name: Create zip (Windows)
+      if: matrix.os == 'windows'
+      run: |
+        zip docker-scan-lite-${{ matrix.suffix }}.zip docker-scan-lite-${{ matrix.suffix }} README.md
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: docker-scan-lite-${{ matrix.suffix }}
+        path: |
+          docker-scan-lite-${{ matrix.suffix }}*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          docker-scan-lite-*/docker-scan-lite-*
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

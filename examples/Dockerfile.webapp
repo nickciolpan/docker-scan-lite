@@ -1,0 +1,29 @@
+# Web application Dockerfile with mixed security practices
+FROM node:16
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies (some security issues here)
+RUN npm install
+
+# Copy application code
+COPY . .
+
+# Set environment variables (security issue)
+ENV NODE_ENV=production
+ENV DATABASE_URL=postgresql://user:password123@db:5432/myapp
+ENV JWT_SECRET=super-secret-key-12345
+
+# Expose port
+EXPOSE 3000
+
+# Create user (good practice)
+RUN useradd -m -u 1001 appuser
+USER appuser
+
+# Start application
+CMD ["npm", "start"] 
