@@ -1,3 +1,5 @@
+<img src="https://github.com/user-attachments/assets/0edb0f04-5ca4-4c5e-a1ac-3dee617e8b73" width="200" alt="Docker Light Logo">
+
 # docker-scan-lite 🐳
 
 A lightweight Docker image scanner that analyzes Dockerfiles for security issues, outdated base images, exposed ports, environment variables, and potential secrets. No Docker daemon integration required - just parses your Dockerfile!
