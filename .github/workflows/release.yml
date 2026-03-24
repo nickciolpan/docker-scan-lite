@@ -10,7 +10,21 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Run tests
+      run: go test -v -race ./...
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -35,7 +49,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: '1.21'
 
@@ -49,11 +63,7 @@ jobs:
         GOARCH: ${{ matrix.arch }}
         VERSION: ${{ steps.version.outputs.VERSION }}
       run: |
-        if [ "${{ matrix.os }}" = "windows" ]; then
-          go build -ldflags="-s -w -X main.version=${VERSION#v}" -o docker-scan-lite-${{ matrix.suffix }}
-        else
-          go build -ldflags="-s -w -X main.version=${VERSION#v}" -o docker-scan-lite-${{ matrix.suffix }}
-        fi
+        go build -ldflags="-s -w -X main.version=${VERSION#v}" -o docker-scan-lite-${{ matrix.suffix }}
 
     - name: Create tarball (non-Windows)
       if: matrix.os != 'windows'
@@ -90,4 +100,4 @@ jobs:
         draft: false
         prerelease: false
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

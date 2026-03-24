@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Run tests
+      run: go test -v -race -coverprofile=coverage.out ./...
+
+    - name: Check coverage
+      run: go tool cover -func=coverage.out
+
+    - name: Build
+      run: go build -o docker-scan-lite .
+
+    - name: Test binary against examples
+      run: |
+        ./docker-scan-lite -f examples/Dockerfile.sample
+        ./docker-scan-lite -f examples/Dockerfile.clean
+        ./docker-scan-lite -f examples/Dockerfile.webapp
+        ./docker-scan-lite -f examples/Dockerfile.sample -j > /dev/null
+        ./docker-scan-lite -f examples/Dockerfile.sample --sarif > /dev/null
+
+    - name: Vet
+      run: go vet ./...
+
+  action-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Test action with sample Dockerfile
+      uses: ./
+      with:
+        dockerfile: examples/Dockerfile.clean
+        fail-on: high
+
+    - name: Test action with JSON output
+      uses: ./
+      id: scan
+      with:
+        dockerfile: examples/Dockerfile.webapp
+        format: json
+        fail-on: ''
+
+    - name: Print scan results
+      run: |
+        echo "Total issues: ${{ steps.scan.outputs.total-issues }}"
+        echo "High issues: ${{ steps.scan.outputs.high-issues }}"

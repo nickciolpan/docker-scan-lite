@@ -56,7 +56,7 @@ func (r *Rules) initializeSecretPatterns() {
 		"generic_token":     `[tT][oO][kK][eE][nN].*[=:]\s*['\"]?[0-9a-zA-Z\-_]{20,}['\"]?`,
 		"private_key":       `-----BEGIN [A-Z ]+PRIVATE KEY-----`,
 		"jwt_token":         `eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+`,
-		"database_url":      `[a-zA-Z][a-zA-Z0-9+.-]*://[^\s'"]+`,
+		"database_url":      `(postgres|postgresql|mysql|mongodb|mongodb\+srv|redis|amqp|mssql|sqlite|couchdb|memcached)://[^\s'"]+`,
 	}
 
 	for name, pattern := range patterns {

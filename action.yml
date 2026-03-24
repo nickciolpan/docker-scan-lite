@@ -1,0 +1,99 @@
+name: 'Docker Scan Lite'
+description: 'Lightweight Dockerfile security scanner — detect outdated images, secrets, insecure commands, and more'
+author: 'Nick Ciolpan'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  dockerfile:
+    description: 'Path to Dockerfile to scan'
+    required: false
+    default: 'Dockerfile'
+  severity:
+    description: 'Minimum severity to report (info, low, medium, high)'
+    required: false
+    default: ''
+  fail-on:
+    description: 'Fail the action if issues at or above this severity are found (info, low, medium, high)'
+    required: false
+    default: 'high'
+  format:
+    description: 'Output format: text, json, or sarif'
+    required: false
+    default: 'text'
+
+outputs:
+  total-issues:
+    description: 'Total number of issues found'
+  high-issues:
+    description: 'Number of high severity issues'
+  medium-issues:
+    description: 'Number of medium severity issues'
+  low-issues:
+    description: 'Number of low severity issues'
+  sarif:
+    description: 'SARIF output (when format is sarif)'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+        cache: false
+
+    - name: Build docker-scan-lite
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        go build -o $RUNNER_TEMP/docker-scan-lite .
+
+    - name: Run scan
+      id: scan
+      shell: bash
+      run: |
+        ARGS="-f ${{ inputs.dockerfile }}"
+
+        if [ -n "${{ inputs.severity }}" ]; then
+          ARGS="$ARGS --severity ${{ inputs.severity }}"
+        fi
+
+        if [ "${{ inputs.format }}" = "json" ]; then
+          ARGS="$ARGS -j"
+        elif [ "${{ inputs.format }}" = "sarif" ]; then
+          ARGS="$ARGS --sarif"
+        fi
+
+        if [ -n "${{ inputs.fail-on }}" ]; then
+          ARGS="$ARGS --exit-code ${{ inputs.fail-on }}"
+        fi
+
+        # Run scan and capture output
+        set +e
+        OUTPUT=$($RUNNER_TEMP/docker-scan-lite $ARGS 2>&1)
+        EXIT_CODE=$?
+        set -e
+
+        echo "$OUTPUT"
+
+        # Parse JSON for outputs if possible
+        JSON_OUTPUT=$($RUNNER_TEMP/docker-scan-lite -f ${{ inputs.dockerfile }} -j 2>/dev/null || true)
+        if [ -n "$JSON_OUTPUT" ]; then
+          echo "total-issues=$(echo "$JSON_OUTPUT" | jq -r '.summary.total_issues // 0')" >> $GITHUB_OUTPUT
+          echo "high-issues=$(echo "$JSON_OUTPUT" | jq -r '.summary.high_severity // 0')" >> $GITHUB_OUTPUT
+          echo "medium-issues=$(echo "$JSON_OUTPUT" | jq -r '.summary.medium_severity // 0')" >> $GITHUB_OUTPUT
+          echo "low-issues=$(echo "$JSON_OUTPUT" | jq -r '.summary.low_severity // 0')" >> $GITHUB_OUTPUT
+        fi
+
+        # Save SARIF if requested
+        if [ "${{ inputs.format }}" = "sarif" ]; then
+          SARIF_OUTPUT=$($RUNNER_TEMP/docker-scan-lite -f ${{ inputs.dockerfile }} --sarif 2>/dev/null || true)
+          echo "sarif<<SARIF_EOF" >> $GITHUB_OUTPUT
+          echo "$SARIF_OUTPUT" >> $GITHUB_OUTPUT
+          echo "SARIF_EOF" >> $GITHUB_OUTPUT
+        fi
+
+        exit $EXIT_CODE
